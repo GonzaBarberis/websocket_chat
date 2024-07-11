@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet">
+    <title>Chat</title>
+    <style>
+        * {
+            font-family: 'Poppins', sans serif;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            width: 90%;
+            max-width: 600px;
+            height: 90%;
+            max-height: 800px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        ul {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .messages {
+            flex: 1;
+            list-style-type: none;
+            margin: 0;
+            padding: 10px;
+            overflow-y: auto;
+        }
+
+        .message {
+            padding: 10px 20px;
+            margin: 5px 0;
+            border-radius: 5px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+
+
+        .message.left {
+            /* background-color: #4fa800; */
+            /* background: rgb(53, 112, 0);
+            background: linear-gradient(270deg, rgba(53, 112, 0, 1) 2%, rgba(71, 152, 0, 1) 100%); */
+            align-self: flex-start;
+            color: white;
+        }
+
+        .message.right {
+            /* background-color: #255500; */
+            background: rgb(18, 69, 89);
+            background: linear-gradient(270deg, rgba(18, 69, 89, 1) 0%, rgba(50, 185, 238, 1) 100%);
+            align-self: flex-end;
+            color: white;
+        }
+
+        .input-container {
+            display: flex;
+            border-top: 1px solid #ccc;
+            padding: 10px;
+            background-color: #f9f9f9;
+        }
+
+        .input-container input {
+            flex: 1;
+            border: none;
+            border-radius: 20px;
+            padding: 10px;
+            font-size: 16px;
+            margin-right: 10px;
+            outline: none;
+        }
+
+        .input-container button {
+            border: none;
+            border-radius: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #0b93f6;
+            color: white;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .input-container button:hover {
+            background-color: #0a83d6;
+        }
+
+        .textAlert {
+            background: rgb(199, 199, 199);
+            background: linear-gradient(270deg, rgba(199, 199, 199, 1) 33%, rgba(136, 136, 136, 1) 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 5px;
+            margin: 10px 0;
+            height: 30px;
+            color: rgb(12, 12, 12);
+        }
+
+        .timeDiv {
+            font-size: 10px;
+            margin-top: 4px;
+            display: flex;
+
+        }
+
+        .timeRight {
+            justify-content: flex-start;
+        }
+
+        .timeLeft {
+            justify-content: flex-end;
+        }
+    </style>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+
+        const getActualTime = () => {
+            const currentTime = new Date();
+            const hours = currentTime.getHours().toString().padStart(2, '0');
+            const minutes = currentTime.getMinutes().toString().padStart(2, '0');
+            const formattedTime = `${hours}:${minutes}`;
+            return formattedTime;
+        }
+
+        function getColorForUser(userId) {
+            const colors = [
+                'linear-gradient(270deg, rgba(53, 112, 0, 1) 2%, rgba(71, 152, 0, 1) 100%)', // Verde
+                'linear-gradient(270deg, rgba(0, 112, 192, 1) 2%, rgba(0, 152, 255, 1) 100%)', // Azul
+                'linear-gradient(270deg, rgba(192, 112, 0, 1) 2%, rgba(255, 152, 0, 1) 100%)', // Naranja
+                'linear-gradient(270deg, rgba(158, 0, 89, 1) 0%, rgba(255, 30, 157, 1) 100%)', // Violeta
+                'linear-gradient(270deg, rgba(141, 8, 1, 1) 21%, rgba(242, 17, 5, 1) 100%)', // Rojo
+                'linear-gradient(270deg, rgba(0, 192, 192, 1) 2%, rgba(0, 255, 255, 1) 100%)', // Celeste
+                'linear-gradient(270deg, rgba(28, 28, 28, 1) 0%, rgba(54, 54, 54, 1) 100%)', // Gris oscuro
+                'linear-gradient(270deg, rgba(30, 30, 60, 1) 0%, rgba(60, 60, 90, 1) 100%)', // Azul marino
+                'linear-gradient(270deg, rgba(72, 61, 139, 1) 0%, rgba(106, 90, 205, 1) 100%)', // Púrpura oscuro
+                'linear-gradient(270deg, rgba(47, 79, 79, 1) 0%, rgba(69, 117, 117, 1) 100%)', // Verde azulado oscuro
+                'linear-gradient(270deg, rgba(85, 37, 130, 1) 0%, rgba(124, 58, 175, 1) 100%)' // Púrpura real
+            ];
+            // Elegir un color basado en el hash del userId
+            const index = userId.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0) % colors.length;
+            return colors[index];
+        }
+
+
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const socket = io();
+
+            document.getElementById('form').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const input = document.getElementById('input');
+                const message = input.value;
+                if (message.trim()) {
+                    addMessage(message, 'right'); // Añade el mensaje del usuario a la derecha
+                    socket.emit('chat message', message);
+                    input.value = '';
+                }
+            });
+
+            socket.on('chat message', (data) => {
+                if (data.type) {
+                    addAlert(data.type, socket.id, data.userName)
+                    return
+                }
+                if (data.userId !== socket.id) { // Verifica si el mensaje no es del propio usuario
+                    addMessage(data, 'left'); // Añade el mensaje recibido a la izquierda
+                }
+            });
+
+            const addAlert = (type, userId, userName) => {
+                const textAlert = document.createElement('div');
+                textAlert.classList.add('textAlert');
+
+                let alertMessage
+                if (type == 'disconnection') {
+                    alertMessage = `<p> El usuario ${userName} se desconectó </p>`
+                }
+                else if (type == 'newconnection') {
+                    alertMessage = `<p> El usuario ${userName} se unió al chat </p>`
+                }
+                else {
+                    alertMessage = '<p> No sabemos que ha pasao xdxdxd </p>'
+                }
+
+                textAlert.innerHTML = alertMessage;
+                document.getElementById('messages').appendChild(textAlert);
+                textAlert.scrollIntoView();
+            }
+
+
+
+            function addMessage(msg, side) {
+                const item = document.createElement('li');
+                item.classList.add('message', side);
+
+                if (side === 'left') {
+                    const userIdLabel = document.createElement('div');
+                    userIdLabel.textContent = msg.userName;
+                    userIdLabel.style.fontSize = '10px';
+                    userIdLabel.style.marginBottom = '4px';
+                    userIdLabel.style.color = '#fff';
+                    item.style.background = getColorForUser(msg.userId);
+                    item.appendChild(userIdLabel);
+                }
+                else {
+                    item.textContent = msg;
+                    item.style.fontSize = '15px';
+                }
+
+                const messageText = document.createElement('div');
+                messageText.textContent = msg.msg || "";  // Mostrar el mensaje
+                messageText.style.fontSize = '15px';
+                messageText.style.fontWeight = '300';
+
+                const time = document.createElement('div');
+                time.classList.add('timeDiv')
+                if (side === 'left') {
+                    time.classList.add('timeLeft')
+                }
+                else {
+                    time.classList.add('timeRight')
+                }
+
+                time.textContent = getActualTime();
+
+                item.appendChild(messageText);
+                item.appendChild(time);
+
+                document.getElementById('messages').appendChild(item);
+                item.scrollIntoView();
+            }
+        });
+    </script>
+</head>
+
+<body>
+    <div class="chat-container">
+        <ul id="messages" class="messages">
+        </ul>
+        <form id="form" class="input-container">
+            <input id="input" autocomplete="off" placeholder="Escribí un mensaje..."><button>Enviar</button>
+        </form>
+    </div>
+</body>
+
+</html>
